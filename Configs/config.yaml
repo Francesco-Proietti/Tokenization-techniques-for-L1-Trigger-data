@@ -1,0 +1,20 @@
+data:
+  train_path: "/media/francesco/STORAGE/Coll_2V_VBFHbb_preliminary_prove/Train"
+  val_path: "/media/francesco/STORAGE/Coll_2V_VBFHbb_preliminary_prove/Val"
+  test_path: "/media/francesco/STORAGE/Coll_2V_VBFHbb_preliminary_prove/Test"
+  batch_size: 32
+  features: 
+    - L1T_PUPPIPart_Eta 
+    - L1T_PUPPIPart_Phi
+    - L1T_PUPPIPart_PT
+    - L1T_PUPPIPart_PID
+    - L1T_PUPPIPart_PuppiW
+  jet_features:
+    - L1T_JetPuppiAK4_PT
+    - L1T_JetPuppiAK4_Eta
+    - L1T_JetPuppiAK4_Phi
+    - L1T_JetPuppiAK4_Mass
+    - L1T_JetPuppiAK8_PT
+    - L1T_JetPuppiAK8_Eta
+    - L1T_JetPuppiAK8_Phi
+    - L1T_JetPuppiAK8_Mass
