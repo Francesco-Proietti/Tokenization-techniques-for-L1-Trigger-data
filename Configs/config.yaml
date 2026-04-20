@@ -18,3 +18,20 @@ data:
     - L1T_JetPuppiAK8_Eta
     - L1T_JetPuppiAK8_Phi
     - L1T_JetPuppiAK8_Mass
+
+model:
+  input_dim: 3
+  hidden_dim: 128
+  latent_dim: 256
+  codebook_size: 256
+  rotation_trick: true
+
+training:
+  batch_size: 32
+  lr: 0.001
+  weight_decay: 0.0001
+  max_epochs: 50
+  precision: 16
+
+VQVAE:
+  beta: 0.25
