@@ -12,13 +12,14 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import IterableDataset, DataLoader, get_worker_info
 import yaml
 
-#Read selected features from the config file
+#Extract features from config file
 with open("Configs/config.yaml") as f:
         config = yaml.safe_load(f)
 
 feature_cols = config["data"]["features"]
 
 
+#Feature preprocessing 
 class PreprocessingTransformation:
     
     def __init__(self, epsilon=1e-8):
@@ -41,7 +42,9 @@ class PreprocessingTransformation:
 
         return df
 
+
     def inverse_tensor(self, tensor):
+
         """Applies the inverse transform to the PyTorch prediction tensor."""
         # Create a clone to avoid in-place modification issues during backprop
         tensor_inv = tensor.clone()
@@ -55,44 +58,52 @@ class PreprocessingTransformation:
         return tensor_inv
 
 
+#Feature dataset
 class ParquetFeatureDataset(IterableDataset):
 
     def __init__(self, parquet_dirs, features, max_particles=256, batch_size=32, preprocessing=True):
-        # We load the base dataset just to map the files
+        
+        #Load the base dataset just to map the files
         self.dataset = ds.dataset(parquet_dirs, format="parquet")
         self.features = features
         self.max_particles = max_particles
         self.batch_size = batch_size
         self.preprocessing = preprocessing
 
+
+    #Iterable
     def __iter__(self):
-        # 1. GET WORKER INFO
+        
+        #Get worker info
         worker_info = get_worker_info()
         files = self.dataset.files
 
-        # 2. SHARD THE FILES ACROSS WORKERS
+        #Shard the diles across workers
         if worker_info is not None:
             worker_id = worker_info.id
             num_workers = worker_info.num_workers
             
-            # Slice the file list: start at worker_id, step by num_workers
+            #Slice the file list: start at worker_id, step by num_workers
             files = files[worker_id::num_workers]
             
-            # Edge case: If there are more workers than files, some workers get nothing
+            #Edge case: If there are more workers than files, some workers get nothing
             if not files:
                 return
 
-        # 3. CREATE A WORKER-SPECIFIC DATASET
+        #Create a worker-specific dataset
         worker_dataset = ds.dataset(files, format="parquet")
 
         # Read only the required physical features for this specific worker
         batches = worker_dataset.to_batches(
             columns=self.features, batch_size=self.batch_size
         )
-
+        
+        #Batches for loop
         for batch in batches:
-            df = batch.to_pandas()
 
+            df = batch.to_pandas()
+            
+            #Preprocessing
             if self.preprocessing == True:
                 df = PreprocessingTransformation().forward_dataframe(df)
 
@@ -102,6 +113,7 @@ class ParquetFeatureDataset(IterableDataset):
             for eta_arr, phi_arr, pt_arr, pid_arr, puppiw_arr in zip(
                 df[self.features[0]], df[self.features[1]], df[self.features[2]], df[self.features[3]], df[self.features[4]] 
             ):
+                
                 PUPPI_mask = puppiw_arr > PUPPI_cutoff
 
                 if len(eta_arr) == 0:
@@ -124,6 +136,7 @@ class ParquetFeatureDataset(IterableDataset):
             )
 
             pad_len = self.max_particles - padded_events.shape[1]
+            
             if pad_len > 0:
                 padded_events = F.pad(padded_events, (0, 0, 0, pad_len), value=0.0)
 
@@ -132,7 +145,9 @@ class ParquetFeatureDataset(IterableDataset):
             yield padded_events, mask
 
 
+#Lightining datamodule
 class ParquetDataModule(L.LightningDataModule):
+    
     def __init__(self, parquet_dirs_train, parquet_dirs_val, parquet_dirs_test, features=feature_cols, window_particles=256, num_workers=0):
         super().__init__()
         self.parquet_dirs_train = parquet_dirs_train
@@ -142,6 +157,8 @@ class ParquetDataModule(L.LightningDataModule):
         self.window_particles = window_particles
         self.num_workers = num_workers
 
+
+    #Train dataloader
     def train_dataloader(self):
         dataset = ParquetFeatureDataset(self.parquet_dirs_train, self.features, self.window_particles)
         return DataLoader(
@@ -152,6 +169,8 @@ class ParquetDataModule(L.LightningDataModule):
             persistent_workers=(self.num_workers > 0) 
         )
 
+
+    #Validation dataloader
     def val_dataloader(self):
         dataset = ParquetFeatureDataset(self.parquet_dirs_val, self.features, self.window_particles)
         return DataLoader(
@@ -162,50 +181,59 @@ class ParquetDataModule(L.LightningDataModule):
             persistent_workers=(self.num_workers > 0)
         )
 
+
+    #Test dataloader
     def test_dataloader(self):
         dataset = ParquetFeatureDataset(self.parquet_dirs_test, self.features, self.window_particles)
-        # Test loaders generally shouldn't use persistent workers anyway, 
-        # since they only run once at the very end.
+        #Test loaders generally shouldn't use persistent workers anyway, 
+        #since they only run once at the very end.
         return DataLoader(
             dataset, 
             batch_size=None, 
             num_workers=self.num_workers
         )
 
+
+#Jet features dataset
 class ParquetJetFeatureDataset(IterableDataset):
 
     def __init__(self, parquet_dirs, features, batch_size=32):
-        # We load the base dataset just to map the files
+        
         self.dataset = ds.dataset(parquet_dirs, format="parquet")
         self.features = features
         self.batch_size = batch_size
         
+
+    #Iterable    
     def __iter__(self):
-        # 1. GET WORKER INFO
+        
+        #Get worker info
         worker_info = get_worker_info()
         files = self.dataset.files
 
-        # 2. SHARD THE FILES ACROSS WORKERS
+        #Shard the files across workers
         if worker_info is not None:
             worker_id = worker_info.id
             num_workers = worker_info.num_workers
             
-            # Slice the file list: start at worker_id, step by num_workers
+            #Slice the file list: start at worker_id, step by num_workers
             files = files[worker_id::num_workers]
             
-            # Edge case: If there are more workers than files, some workers get nothing
+            #Edge case: If there are more workers than files, some workers get nothing
             if not files:
                 return
 
-        # 3. CREATE A WORKER-SPECIFIC DATASET
+        #Create a worker-specific dataset
         worker_dataset = ds.dataset(files, format="parquet")
 
-        # Read only the required physical features for this specific worker
+        #Read only the required physical features for this specific worker
         batches = worker_dataset.to_batches(
             columns=self.features, batch_size=self.batch_size
         )
 
+        #Batches for loop
         for batch in batches:
+
             df = batch.to_pandas()
 
             yield df
