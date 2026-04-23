@@ -148,19 +148,21 @@ class ParquetFeatureDataset(IterableDataset):
 #Lightining datamodule
 class ParquetDataModule(L.LightningDataModule):
     
-    def __init__(self, parquet_dirs_train, parquet_dirs_val, parquet_dirs_test, features=feature_cols, window_particles=256, num_workers=0):
+    def __init__(self, parquet_dirs_train, parquet_dirs_val, parquet_dirs_test, features=feature_cols, window_particles=256, batch_size=32, preprocessing=True, num_workers=0):
         super().__init__()
         self.parquet_dirs_train = parquet_dirs_train
         self.parquet_dirs_val = parquet_dirs_val
         self.parquet_dirs_test = parquet_dirs_test
         self.features = features
         self.window_particles = window_particles
+        self.batch_size = batch_size
+        self.preprocessing = preprocessing
         self.num_workers = num_workers
 
 
     #Train dataloader
     def train_dataloader(self):
-        dataset = ParquetFeatureDataset(self.parquet_dirs_train, self.features, self.window_particles)
+        dataset = ParquetFeatureDataset(self.parquet_dirs_train, self.features, self.window_particles, self.batch_size, self.preprocessing)
         return DataLoader(
             dataset, 
             batch_size=None, 
@@ -172,7 +174,7 @@ class ParquetDataModule(L.LightningDataModule):
 
     #Validation dataloader
     def val_dataloader(self):
-        dataset = ParquetFeatureDataset(self.parquet_dirs_val, self.features, self.window_particles)
+        dataset = ParquetFeatureDataset(self.parquet_dirs_val, self.features, self.window_particles, self.batch_size, self.preprocessing)
         return DataLoader(
             dataset, 
             batch_size=None, 
@@ -184,7 +186,7 @@ class ParquetDataModule(L.LightningDataModule):
 
     #Test dataloader
     def test_dataloader(self):
-        dataset = ParquetFeatureDataset(self.parquet_dirs_test, self.features, self.window_particles)
+        dataset = ParquetFeatureDataset(self.parquet_dirs_test, self.features, self.window_particles, self.batch_size, self.preprocessing)
         #Test loaders generally shouldn't use persistent workers anyway, 
         #since they only run once at the very end.
         return DataLoader(

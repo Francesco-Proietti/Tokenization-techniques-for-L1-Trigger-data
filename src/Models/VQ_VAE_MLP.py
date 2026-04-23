@@ -56,7 +56,7 @@ class Decoder(nn.Module):
 #VQ-VAE Model (Lightning)
 class VQVAE_MLP(L.LightningModule):
 
-    def __init__(self, input_dim=3, hidden_dim=128, latent_dim=256, codebook_size=256, lr=1e-3):
+    def __init__(self, dec=0.8, beta=0.25, rot_trick=True, input_dim=3, hidden_dim=128, latent_dim=256, codebook_size=256, lr=1e-3):
         
         super().__init__()
 
@@ -70,20 +70,40 @@ class VQVAE_MLP(L.LightningModule):
         self.vq = VectorQuantize(
             dim=latent_dim,
             codebook_size=codebook_size,
-            rotation_trick=True,
-            commitment_weight=0.25
+            rotation_trick=rot_trick,
+            commitment_weight=beta,
+            decay=dec
         )
 
         self.lr = lr
 
     
     #Forward
-    def forward(self, x):
+    def forward(self, x, mask):
 
         #x_dim: [B, P, F]
         z_e = self.encoder(x)                     #[B, P, D]
-        z_q, indices, commit_loss = self.vq(z_e)  #quantization
-        x_recon = self.decoder(z_q)               #reconstruction
+        
+        #Shape z_e
+        B, P, D = z_e.shape
+
+        #Flatten
+        z_e_flat = z_e.view(-1, D)      # [B*P, D]
+        mask_flat = mask.view(-1)       # [B*P]
+
+        #Only valid particles
+        z_e_valid = z_e_flat[mask_flat]  # [N_valid, D]
+
+        #VQ only for valid particles
+        z_q_valid, indices, commit_loss = self.vq(z_e_valid)
+
+        #Rebuild the padded tensor
+        z_q_flat = torch.zeros_like(z_e_flat)
+        z_q_flat[mask_flat] = z_q_valid
+
+        z_q = z_q_flat.view(B, P, D)
+
+        x_recon = self.decoder(z_q)    #reconstruction
 
         return x_recon, commit_loss, indices
 
@@ -93,7 +113,7 @@ class VQVAE_MLP(L.LightningModule):
 
         x, mask = batch  #mask_dim: [B, P]
 
-        x_recon, commit_loss, _ = self(x)
+        x_recon, commit_loss, _ = self(x, mask)
 
         #Reconstruction loss 
         recon_loss = (x - x_recon) ** 2
@@ -120,7 +140,7 @@ class VQVAE_MLP(L.LightningModule):
 
         x, mask = batch
 
-        x_recon, commit_loss, _ = self(x)
+        x_recon, commit_loss, _ = self(x, mask)
         
         #Reconstruction loss
         recon_loss = (x - x_recon) ** 2
@@ -145,7 +165,7 @@ class VQVAE_MLP(L.LightningModule):
     def test_step(self, batch, batch_idx):
         x, mask = batch
 
-        x_recon, commit_loss, _ = self(x)
+        x_recon, commit_loss, _ = self(x, mask)
 
         #Reconstruction loss
         recon_loss = (x - x_recon) ** 2
