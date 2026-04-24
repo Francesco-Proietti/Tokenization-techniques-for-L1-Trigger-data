@@ -1,0 +1,8 @@
+beta: 0.25
+codebook_size: 256
+dec: 0.8
+hidden_dim: 128
+input_dim: 3
+latent_dim: 256
+lr: 0.001
+rot_trick: true
