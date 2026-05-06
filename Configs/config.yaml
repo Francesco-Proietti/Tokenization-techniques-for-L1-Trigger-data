@@ -25,7 +25,7 @@ MLP_VQVAE:
   hidden_dim: 128
   latent_dim: 256
   codebook_size: 256
-  rotation_trick: true
+  rotation_trick: True
   decay: 0.8
   beta: 0.25
 
@@ -35,11 +35,11 @@ Transformer_VQVAE:
   n_heads: 4
   n_layers: 3
   codebook_size: 256
-  rotation_trick: true
+  rotation_trick: True
   decay: 0.8
   beta: 0.25
 
 training:
   lr: 0.001
-  max_epochs: 20
+  max_epochs: 10
   batch_size: 32

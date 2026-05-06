@@ -1,6 +1,5 @@
 #Transformer VQ-VAE
 
-#capire come trattare mask e commit loss del VQ
 
 #Import libraries
 import torch
