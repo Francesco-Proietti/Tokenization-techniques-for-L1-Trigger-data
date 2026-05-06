@@ -1,5 +1,3 @@
-#Main
-
 #Import custom classes and libraries
 from src.Data.data_loading import ParquetDataModule
 from src.Data.data_loading import ParquetFeatureDataset
@@ -16,12 +14,12 @@ from lightning.pytorch.loggers import CSVLogger
 
 def main():
 
-    #Config
+    #Config-------------------------------------------------------
     with open("Configs/config.yaml") as f:
         config = yaml.safe_load(f)
 
 
-    #Extract config info
+    #Extract config info------------------------------------------
     #Directories
     dirs_train = config["data"]["train_path"]
     dirs_val = config["data"]["val_path"]
@@ -46,39 +44,9 @@ def main():
     lr = config["training"]["lr"]
     max_epochs = config["training"]["max_epochs"]
     batch_size = config["training"]["batch_size"]
+ 
 
-
-    #Initialization of itarable dataset (train dataset) containing the constituents' features (eta, phi, pT)
-    #In particular I am currently using the first 2 parquet files
-    dataset_train = ParquetFeatureDataset(
-        parquet_dirs=dirs_train,
-        features=features_cols,
-        max_particles=max_part,
-        batch_size=batch_size,
-        preprocessing=prep
-    )
-
-    #Validation dataset
-    #In particular I am currently using parquet files n. 5,6
-    dataset_val = ParquetFeatureDataset(
-        parquet_dirs=dirs_val,
-        features=features_cols,
-        max_particles=max_part,
-        batch_size=batch_size,
-        preprocessing=prep
-    )
-
-    #Test dataset
-    #In particular I am currently using parquet file n. 7
-    dataset_test = ParquetFeatureDataset(
-        parquet_dirs=dirs_test,
-        features=features_cols,
-        max_particles=max_part,
-        batch_size=batch_size,
-        preprocessing=prep
-    )
-
-    #Initialization of the lightining datamodule 
+    #Initialization of the lightining datamodule -----------------
     data_module = ParquetDataModule(
         parquet_dirs_train=dirs_train, 
         parquet_dirs_val=dirs_val,
@@ -90,7 +58,8 @@ def main():
         #num_workers=0
     )
 
-    #Model
+
+    #Model--------------------------------------------------------
     model_with_rot = VQVAE_Transformer(
         dec=decay,
         beta = beta,
@@ -115,10 +84,12 @@ def main():
         logger=logger
     )
 
-    #Training
+
+    #Training-----------------------------------------------------
     trainer_with_rot.fit(model_with_rot, datamodule=data_module)
 
-    #Test
+
+    #Test---------------------------------------------------------
     trainer_with_rot.test(model_with_rot, datamodule=data_module)
 
 
